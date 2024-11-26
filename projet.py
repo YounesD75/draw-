@@ -1,5 +1,7 @@
 import tkinter as tk
 from tkinter import filedialog, messagebox
+from tkinter import PhotoImage
+
 from tkinter import ttk
 import sys
 import io
@@ -150,7 +152,19 @@ def on_closing():
 # Création de la fenêtre principale
 root = tk.Tk()
 root.title("Éditeur de texte avec Onglets")
+# Modifier le curseur avec un style intégré ou une image
+root.config(cursor="fleur")  # Exemple avec un curseur intégré (main)
 
+# Créer un label pour afficher la position du curseur
+cursor_label = tk.Label(root,bg="yellow", text="Position du curseur: (0, 0)", font=("Arial", 12,))
+cursor_label.pack(padx=10, pady=10)
+
+# Fonction pour afficher la position actuelle de la souris
+def on_mouse_move(event):
+    cursor_label.config(text=f"Position du curseur: ({event.x}, {event.y})")
+
+# Lier l'événement de mouvement de la souris
+root.bind("<Motion>", on_mouse_move)
 # Configuration de la taille de la fenêtre
 largeur_ecran = root.winfo_screenwidth()
 hauteur_ecran = root.winfo_screenheight()

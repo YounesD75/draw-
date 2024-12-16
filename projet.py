@@ -58,6 +58,11 @@ def open_file():
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible d'ouvrir le fichier : {e}")
 
+def new_file():
+    tab = ttk.Frame(notebook)
+    notebook.add(tab, text="Nouveau Fichier")
+    create_text_with_line_numbers(tab)
+    
 # Fonction pour enregistrer un fichier
 def save_file():
     current_tab = notebook.select()

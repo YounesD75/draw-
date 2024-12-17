@@ -153,10 +153,6 @@ class DrawPlusPlusEditor:
         for i, line in enumerate(lines, 1):
             line_numbers.insert("end", f"{i}\n")
         
-import re
-
-import re
-
 def traducteur(code):
     # Traduction des instructions conditionnelles
     code = re.sub(r'\bsi\s+(.*?)\s*\{', r'if \1:', code)  # "si" devient "if"
@@ -182,13 +178,6 @@ def traducteur(code):
     code = re.sub(r'\}', '', code)
     
     return code
-
-
-
-
-
-
-
 
 # Exécution du programme
 if __name__ == "__main__":

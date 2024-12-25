@@ -2,185 +2,335 @@ import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 import re
 
+class Tokenizer:
+    def __init__(self, code):
+        self.code = code
+        self.tokens = []
+
+        # Définir les modèles de jetons
+        self.token_patterns = [
+            ("SI", r"\bsi\b"),          # Mot "si" entier
+            ("SINON", r"\bsinon\b"),    # Mot "sinon" entier
+            ("POUR", r"\bpour\b"),      # Mot "pour" entier
+            ("A", r"\bà\b"),  # Mot "à" pour les plages dans les boucles
+    	    ("DE", r"\bde\b"),  # Mot "de" pour les plages dans les boucles
+            ("TANTQUE", r"tantque"),
+            ("TANTQUEFAIRE", r"tantquefaire"),
+            ("AFFICHER", r"afficher"),
+            ("ASSIGNATION", r"->"),
+            ("NOMBRE", r"\d+"),
+            ("VARIABLE", r"[a-zA-Z_]\w*"),
+            ("OPERATEUR", r"[+\-*/=><!]"),
+            ("PARENTHESE_OUV", r"\("),
+            ("PARENTHESE_FERM", r"\)"),
+            ("ACCOLADE_OUV", r"\{"),
+            ("ACCOLADE_FERM", r"\}"),
+            ("VIRGULE", r","),
+            ("CHAINE", r'"[^"]*"'),  # Modèle pour les chaînes de caractères (entre guillemets)
+            ("ESPACE", r"\s+"),  # On ignore les espaces
+        ]
+
+    def tokenize(self):
+        code = self.code
+        tokens = []  # Liste vide pour les jetons
+
+        while code:  # Tant qu'il reste du code à analyser
+            match = None
+
+            # Essayer de faire correspondre un modèle de jeton
+            for token_type, pattern in self.token_patterns:
+                regex = re.compile(pattern)
+                match = regex.match(code)
+
+                if match:
+                    value = match.group(0)  # Extraire la valeur correspondante
+                    if token_type != "ESPACE":  # Ignorer les espaces
+                        tokens.append((token_type, value))  # Ajouter le jeton à la liste
+                    code = code[len(value):]  # Avancer dans le code
+                    break
+
+            if not match:  # Si aucun jeton ne correspond
+                raise SyntaxError(f"Caractère inattendu : {code[0]}")
+
+        tokens.append(("EOF", None))  # Ajouter un jeton de fin (EOF)
+        return tokens
+
+# Exemple d'utilisation
+"""code = "si x > 5 { afficher('x est supérieur à 5') } sinon { afficher('x est inférieur ou égal à 5') }"
+tokenizer = Tokenizer(code)
+tokens = tokenizer.tokenize()
+
+print(tokens)"""
+
+
+
+# --- Parser ---
+class Parser:
+    def __init__(self, tokens):
+        self.tokens = tokens
+        self.pos = 0
+
+    def consume(self, expected_type=None):
+        current_token = self.tokens[self.pos]
+        if expected_type and current_token[0] != expected_type:
+            raise SyntaxError(f"Expected {expected_type}, got {current_token[0]}")
+        self.pos += 1
+        return current_token
+
+    def peek(self):
+        return self.tokens[self.pos]
+
+    def parse(self):
+        return self.parse_statements()
+
+    def parse_statements(self):
+        statements = []
+        while self.peek()[0] not in ("EOF", "ACCOLADE_FERM"):
+            statements.append(self.parse_statement())
+        return {"type": "Program", "body": statements}
+
+    def parse_statement(self):
+     token = self.peek()
+    
+     if token[0] == "SI":
+        return self.parse_if()
+     elif token[0] == "AFFICHER":
+        return self.parse_print()
+     elif token[0] == "VARIABLE":
+        # Vérifiez si c'est une assignation ou une expression autonome
+        next_token = self.tokens[self.pos + 1]
+        if next_token[0] == "ASSIGNATION":
+            return self.parse_assignment()
+        else:
+            return self.parse_expression()  # Traitez comme une expression autonome
+     elif token[0] == "POUR":
+        return self.parse_for()
+     elif token[0] == "TANTQUE":
+        return self.parse_while()
+     elif token[0] in ("NOMBRE", "CHAINE"):
+        # Permettre une expression autonome
+        return self.parse_expression()
+    
+     raise SyntaxError(f"Unexpected token: {token}")
+
+
+    def parse_if(self):
+     self.consume("SI")
+     condition = self.parse_expression()
+     self.consume("ACCOLADE_OUV")
+     then_branch = self.parse_statements()
+     self.consume("ACCOLADE_FERM")
+     if self.peek()[0] == "SINON":
+        print("Bloc 'SINON' détecté.")  # Débogage
+        self.consume("SINON")
+        self.consume("ACCOLADE_OUV")
+        else_branch = self.parse_statements()
+        self.consume("ACCOLADE_FERM")
+     elif self.peek()[0] != "SINON": 
+        else_branch = None
+     return {"type": "IfStatement", "condition": condition, "then": then_branch, "else": else_branch}
+
+
+    def parse_expression(self):
+    # Parsing d'une expression simple ou binaire
+     left = self.parse_primary()  # Analyse du premier opérande (élément de base)
+
+    # Vérifie s'il y a un opérateur binaire (comme +, -, >, <, etc.)
+     while self.peek()[0] == "OPERATEUR":
+        operator = self.consume("OPERATEUR")[1]  # Consomme l'opérateur
+        right = self.parse_primary()  # Analyse de l'opérande droit
+        left = {"type": "BinaryExpression", "operator": operator, "left": left, "right": right}
+
+     return left
+
+    def parse_primary(self):
+    # Analyse des éléments primaires comme des variables, nombres ou chaînes
+     token = self.consume()
+     if token[0] == "VARIABLE":
+        return {"type": "Variable", "name": token[1]}
+     elif token[0] == "NOMBRE":
+        return {"type": "Literal", "value": int(token[1])}
+     elif token[0] == "CHAINE":
+        return {"type": "Literal", "value": token[1]}
+     raise SyntaxError(f"Unexpected token in expression: {token}")
+
+
+
+
+
+    def parse_assignment(self):
+        variable = self.consume("VARIABLE")
+        self.consume("ASSIGNATION")
+        value = self.parse_expression()
+        return {"type": "Assignment", "variable": variable[1], "value": value}
+
+    def parse_print(self):
+     self.consume("AFFICHER")
+     self.consume("PARENTHESE_OUV")
+     value = self.parse_expression()  # Cela inclura maintenant les chaînes de caractères
+     self.consume("PARENTHESE_FERM")
+     return {"type": "PrintStatement", "value": value}
+
+
+    def parse_for(self):
+    	self.consume("POUR")  # Consomme le mot 'pour'
+    	variable = self.consume("VARIABLE")[1]  # Identifie la variable (ex: i)
+    	self.consume("DE")  # Consomme le mot 'de'
+    	start = self.parse_expression()  # Analyse le début de la plage
+    	self.consume("A")  # Consomme le mot 'à'
+    	end = self.parse_expression()  # Analyse la fin de la plage
+    	self.consume("ACCOLADE_OUV")  # Consomme '{'
+    	body = self.parse_statements()  # Analyse les instructions du corps
+    	self.consume("ACCOLADE_FERM")  # Consomme '}'
+
+    	return {
+        	"type": "ForLoop",
+        	"variable": variable,
+        	"start": start,
+        	"end": end,
+        	"body": body,
+    	}
+
+    def parse_while(self):
+        self.consume("TANTQUE")
+        condition = self.parse_expression()
+        self.consume("ACCOLADE_OUV")
+        body = self.parse_statements()
+        self.consume("ACCOLADE_FERM")
+        return {"type": "WhileLoop", "condition": condition, "body": body}
+
+
+# --- Translator ---
+class Translator:
+    def translate(self, ast):
+        print(f"AST: {ast}")  # Débogage pour vérifier l'AST
+        if ast["type"] == "Program":
+            return "\n".join(self.translate(statement) for statement in ast["body"])
+        elif ast["type"] == "IfStatement":
+          code = f"if {self.translate(ast['condition'])}:\n    {self.translate(ast['then'])}"
+          if ast["else"]:
+            code += f"\nelse:\n    {self.translate(ast['else'])}"
+          return code
+        elif ast["type"] == "Assignment":
+            return f"{ast['variable']} = {self.translate(ast['value'])}"
+        elif ast["type"] == "PrintStatement":
+            return f"print({self.translate(ast['value'])})"
+        elif ast["type"] == "ForLoop":
+            variable = ast["variable"]
+            start = self.translate(ast["start"])
+            end = self.translate(ast["end"])
+            body = self.translate(ast["body"])
+            return f"for {variable} in range({start}, {end}):\n    {body}"
+        elif ast["type"] == "WhileLoop":
+            return f"while {self.translate(ast['condition'])}:\n    {self.translate(ast['body'])}"
+        elif ast["type"] == "BinaryExpression":
+            left = self.translate(ast["left"])
+            operator = ast["operator"]
+            right = self.translate(ast["right"])
+            return f"({left} {operator} {right})"
+        elif ast["type"] == "Literal":
+            return ast["value"]
+        elif ast["type"] == "Variable":
+            return ast["name"]
+        raise ValueError(f"Unknown AST node type: {ast['type']}")
+
+# --- GUI Editor ---
 class DrawPlusPlusEditor:
     def __init__(self, root):
         self.root = root
         self.root.title("Draw++ Editor")
-        
-        # Maximiser la fenêtre au démarrage
-        self.root.state("zoomed")
-        
-        # Menus
+        # self.root.state("zoomed")
+        self.root.attributes("-zoomed", True)
+
         self.create_menu()
-        
-        # Onglets pour gérer plusieurs fichiers
+
         self.tab_control = ttk.Notebook(root)
         self.tab_control.pack(expand=1, fill="both")
-        
-        # Créer un onglet par défaut
+
         self.new_file()
-    
-    def open_file(self):
-        print("Ouverture de fichier...")
-        file_path = filedialog.askopenfilename(
-            filetypes=[  
-                ("Fichiers Draw++", "*.draw"),  
-                ("Tous les fichiers", "*.*"),
-            ]
-        )
-        
-        if file_path:  # Si un fichier est sélectionné
-            print(f"Fichier sélectionné : {file_path}")
-            try:
-                with open(file_path, "r") as file:
-                    content = file.read()  
-                
-                new_tab = tk.Frame(self.tab_control)
-                text_area = tk.Text(new_tab, wrap="word")
-                text_area.insert("1.0", content)  # Insérer le contenu dans le texte
-                text_area.pack(expand=1, fill="both", side="right")
-                
-                self.tab_control.add(new_tab, text=file_path.split("/")[-1])
-                self.tab_control.select(new_tab)
-            
-            except Exception as e:
-                print(f"Erreur lors de l'ouverture du fichier : {e}")
-                tk.messagebox.showerror("Erreur", f"Impossible d'ouvrir le fichier : {e}")
-    
+
     def create_menu(self):
         menu_bar = tk.Menu(self.root)
-        
+
         file_menu = tk.Menu(menu_bar, tearoff=0)
         file_menu.add_command(label="Nouveau", command=self.new_file)
         file_menu.add_command(label="Ouvrir", command=self.open_file)
         file_menu.add_command(label="Sauvegarder", command=self.save_file)
         file_menu.add_separator()
         file_menu.add_command(label="Quitter", command=self.root.quit)
-        
-        # Ajouter le menu "Fichier" et "Exécuter"
         menu_bar.add_cascade(label="Fichier", menu=file_menu)
-        
+
         run_menu = tk.Menu(menu_bar, tearoff=0)
         run_menu.add_command(label="Exécuter", command=self.run_code)
         menu_bar.add_cascade(label="Exécuter", menu=run_menu)
-        
+
         self.root.config(menu=menu_bar)
 
     def new_file(self):
-        # Crée un nouvel onglet avec une zone de texte et les numéros de ligne
         new_tab = tk.Frame(self.tab_control)
-        
-        frame = tk.Frame(new_tab)
-        frame.pack(fill="both", expand=True)
-
-        # Zone de texte pour le code
-        text_area = tk.Text(frame, wrap="word", undo=True)
+        text_area = tk.Text(new_tab, wrap="word", undo=True)
         text_area.pack(side="right", fill="both", expand=True)
 
-        # Zone pour les numéros de ligne
-        line_numbers = tk.Text(frame, width=4, padx=2, takefocus=0, borderwidth=0, relief="flat")
-        line_numbers.pack(side="left", fill="y")
-
-        text_area.bind("<KeyRelease>", lambda event, text_area=text_area, line_numbers=line_numbers: self.update_line_numbers(event, text_area, line_numbers))
-        
-        # Associer le widget Text à l'onglet actuel via un dictionnaire
+        # Stocker la référence de la zone de texte dans l'onglet
+        new_tab.text_area = text_area  # Référence directe à la zone de texte
         self.tab_control.add(new_tab, text="Sans titre")
         self.tab_control.select(new_tab)
 
-        # Récupérer et enregistrer la référence du widget de texte pour pouvoir y accéder plus tard
-        self.tab_control.nametowidget(new_tab).text_widget = text_area
-    
+
+    def open_file(self):
+        file_path = filedialog.askopenfilename(filetypes=[("Fichiers Draw++", "*.draw"), ("Tous les fichiers", "*.*")])
+        if file_path:
+            with open(file_path, "r") as file:
+                content = file.read()
+            self.new_file()
+            text_area = self.get_current_text_area()
+            text_area.insert("1.0", content)
+
     def save_file(self):
-        print("Sauvegarde du fichier...")
         current_tab = self.tab_control.select()
         if current_tab:
-            # Accéder au widget Text à partir de l'onglet sélectionné
-            frame = self.tab_control.nametowidget(current_tab)
-            text_widget = getattr(frame, 'text_widget', None)
-            
-            if text_widget:
-                content = text_widget.get("1.0", "end-1c")
-                file_path = filedialog.asksaveasfilename(
-                    defaultextension=".draw", 
-                    filetypes=[ 
-                        ("Fichiers Draw++", "*.draw"),
-                        ("Tous les fichiers", "*.*"),
-                    ],
-                )
-
-                if file_path:
-                    try:
-                        with open(file_path, "w") as file:
-                            file.write(content)
-                        self.tab_control.tab(current_tab, text=file_path.split("/")[-1])
-                    except Exception as e:
-                        print(f"Erreur lors de la sauvegarde du fichier : {e}")
-                        tk.messagebox.showerror("Erreur", f"Impossible de sauvegarder le fichier : {e}")
+            text_area = self.get_current_text_area()
+            content = text_area.get("1.0", "end-1c")
+            file_path = filedialog.asksaveasfilename(defaultextension=".draw", filetypes=[("Fichiers Draw++", "*.draw")])
+            if file_path:
+                with open(file_path, "w") as file:
+                    file.write(content)
 
     def run_code(self):
         current_tab = self.tab_control.select()
         if current_tab:
-        # Accéder au widget Text à partir de l'onglet sélectionné
-            frame = self.tab_control.nametowidget(current_tab)
-            text_widget = getattr(frame, 'text_widget', None)
+            tab_widget = self.tab_control.nametowidget(current_tab)
 
-        # Vérifier si un widget Text est trouvé
-        if text_widget:
-            code = text_widget.get("1.0", "end-1c")
-
-            if code.strip():  # Vérifier que le code n'est pas vide
+            # Accéder directement à la zone de texte dans l'onglet
+            text_area = getattr(tab_widget, "text_area", None)
+            if text_area:
+                code = text_area.get("1.0", "end-1c")
+                print("Code à analyser :", code)  # Debug: Voir le code
                 try:
-                    # Traduire le code Draw++ en Python
-                    translated_code = traducteur(code)
-                    
-                    # Vérifier si translated_code est bien une chaîne de caractères
-                    if isinstance(translated_code, str):
-                        exec(translated_code)  # Exécuter le code traduit
-                    else:
-                        tk.messagebox.showerror("Erreur", "Le code traduit n'est pas une chaîne valide.")
+                    tokenizer = Tokenizer(code)
+                    tokens = tokenizer.tokenize()
+                    print("Tokens : ", tokens)  # Debug: Voir les jetons
+                    parser = Parser(tokens)
+                    ast = parser.parse()
+                    translator = Translator()
+                    python_code = translator.translate(ast)
+                    print("Code Python généré :\n", python_code)
+                    exec(python_code)  # Exécution du code Python généré
+                except SyntaxError as e:
+                    messagebox.showerror("Erreur de syntaxe", f"Erreur de syntaxe : {str(e)}")
                 except Exception as e:
-                    tk.messagebox.showerror("Erreur", f"Erreur d'exécution : {e}")
+                    messagebox.showerror("Erreur d'exécution", f"Erreur d'exécution : {str(e)}")
             else:
-                tk.messagebox.showwarning("Avertissement", "Le code est vide !")
-        else:
-            tk.messagebox.showerror("Erreur", "Aucun champ de texte trouvé dans l'onglet actuel.")
+                messagebox.showerror("Erreur", "Impossible de trouver la zone de texte dans l'onglet actuel.")
 
-    
-    def update_line_numbers(self, event, text_area, line_numbers):
-        # Fonction pour mettre à jour les numéros de ligne
-        line_numbers.delete(1.0, "end")
-        lines = text_area.get("1.0", "end-1c").splitlines()
-        for i, line in enumerate(lines, 1):
-            line_numbers.insert("end", f"{i}\n")
-        
-def traducteur(code):
-    # Traduction des instructions conditionnelles
-    code = re.sub(r'\bsi\s+(.*?)\s*\{', r'if \1:', code)  # "si" devient "if"
-    code = re.sub(r'\bsinon\s*\{', r'else:', code)  # "sinon" devient "else"
-    
-    # Traduction des boucles "pour"
-    code = re.sub(r'\bpour\s+(.*?)\s+de\s+(.*)\s+à\s+(.*)\s*\{', r'for \1 in range(\2, \3):', code)  # "pour" devient "for"
-    
-    # Traduction de "tantque"
-    code = re.sub(r'\btantque\s+(.*?)\s*\{', r'while \1:', code)  # "tantque" devient "while"
-    # ne marche pas
-    # Traduction de "tantquefaire" -> "while True" avec un break
-    code = re.sub(r'\btantquefaire\s*\{', r'while True:', code)  # "tantquefaire" devient "while True"
-    # ne marche pas
-    # Traduction des instructions d'assignation
-    code = re.sub(r'\b(\w+)\s*->\s*(.*?)\s*', r'\1 = \2', code)  # Affectation
-    
-    # Traduction de "print"
-    code = re.sub(r'\bafficher\s*\((.*?)\)\s*', r'print(\1)', code)  # "print" inchangé (utilisé en Python)
+    def get_current_text_area(self):
+        # Récupère directement la zone de texte de l'onglet actif
+        current_tab = self.tab_control.select()
+        if current_tab:
+            return getattr(self.tab_control.nametowidget(current_tab), "text_area", None)
+        return None
 
-    # Suppression des accolades pour le bloc
-    code = re.sub(r'\{', '', code)
-    code = re.sub(r'\}', '', code)
-    
-    return code
-
-# Exécution du programme
 if __name__ == "__main__":
     root = tk.Tk()
-    editor = DrawPlusPlusEditor(root)
+    app = DrawPlusPlusEditor(root)
     root.mainloop()

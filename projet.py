@@ -15,6 +15,7 @@ class Tokenizer:
             ("A", r"\bà\b"),  # Mot "à" pour les plages dans les boucles
     	    ("DE", r"\bde\b"),  # Mot "de" pour les plages dans les boucles
             ("TANTQUE", r"tantque"),
+            ("EQUALS_EQUIV", r"==>"),
             ("TANTQUEFAIRE", r"tantquefaire"),
             ("AFFICHER", r"afficher"),
             ("ASSIGNATION", r"->"),
@@ -121,7 +122,7 @@ class Parser:
      then_branch = self.parse_statements()
      self.consume("ACCOLADE_FERM")
      if self.peek()[0] == "SINON":
-        print("Bloc 'SINON' détecté.")  # Débogage
+        # print("Bloc 'SINON' détecté.")  # Débogage
         self.consume("SINON")
         self.consume("ACCOLADE_OUV")
         else_branch = self.parse_statements()
@@ -132,16 +133,18 @@ class Parser:
 
 
     def parse_expression(self):
-    # Parsing d'une expression simple ou binaire
-     left = self.parse_primary()  # Analyse du premier opérande (élément de base)
+    	left = self.parse_primary()  # Analyse du premier opérande
 
-    # Vérifie s'il y a un opérateur binaire (comme +, -, >, <, etc.)
-     while self.peek()[0] == "OPERATEUR":
-        operator = self.consume("OPERATEUR")[1]  # Consomme l'opérateur
-        right = self.parse_primary()  # Analyse de l'opérande droit
-        left = {"type": "BinaryExpression", "operator": operator, "left": left, "right": right}
+    	while self.peek()[0] in ("OPERATEUR", "EQUALS_EQUIV"):  # Vérifier les opérateurs y compris '==>'
+        	operator = self.consume()[1]  # Consomme l'opérateur
+        	if operator == "==>":
+            		operator = "=="  # Remplace '==>' par '=='
+        	right = self.parse_primary()  # Analyse de l'opérande droit
+        	left = {"type": "BinaryExpression", "operator": operator, "left": left, "right": right}
 
-     return left
+    	return left
+
+
 
     def parse_primary(self):
     # Analyse des éléments primaires comme des variables, nombres ou chaînes
@@ -165,11 +168,20 @@ class Parser:
         return {"type": "Assignment", "variable": variable[1], "value": value}
 
     def parse_print(self):
-     self.consume("AFFICHER")
-     self.consume("PARENTHESE_OUV")
-     value = self.parse_expression()  # Cela inclura maintenant les chaînes de caractères
-     self.consume("PARENTHESE_FERM")
-     return {"type": "PrintStatement", "value": value}
+    	self.consume("AFFICHER")
+    	self.consume("PARENTHESE_OUV")
+    
+    	expressions = []
+    	while self.peek()[0] != "PARENTHESE_FERM":
+        	expr = self.parse_expression()  # Cela inclura maintenant les variables
+        	expressions.append(expr)
+        	if self.peek()[0] == "VIRGULE":
+            		self.consume("VIRGULE")
+    
+    	self.consume("PARENTHESE_FERM")
+    
+    # Retourne un PrintStatement, mais pour chaque expression à afficher, les chaînes et variables sont traitées
+    	return {"type": "PrintStatement", "values": expressions}
 
 
     def parse_for(self):
@@ -234,6 +246,40 @@ class Translator:
             return ast["name"]
         raise ValueError(f"Unknown AST node type: {ast['type']}")
 """
+
+class CTranslator:
+    def translate(self, ast):
+        print(f"AST: {ast}")  # Débogage pour vérifier l'AST
+        if ast["type"] == "Program":
+            return "\n".join(self.translate(statement) for statement in ast["body"])
+        elif ast["type"] == "IfStatement":
+            code = f"if ({self.translate(ast['condition'])}) {{\n    {self.translate(ast['then'])}\n}}"
+            if ast["else"]:
+                code += f"\nelse {{\n    {self.translate(ast['else'])}\n}}"
+            return code
+        elif ast["type"] == "Assignment":
+            return f"{ast['variable']} = {self.translate(ast['value'])};"
+        elif ast["type"] == "PrintStatement":
+            return f'printf("{self.translate(ast["values"][0])}\\n");'
+        elif ast["type"] == "ForLoop":
+            variable = ast["variable"]
+            start = self.translate(ast["start"])
+            end = self.translate(ast["end"])
+            body = self.translate(ast["body"])
+            return f"for (int {variable} = {start}; {variable} <= {end}; {variable}++) {{\n    {body}\n}}"
+        elif ast["type"] == "WhileLoop":
+            return f"while ({self.translate(ast['condition'])}) {{\n    {self.translate(ast['body'])}\n}}"
+        elif ast["type"] == "BinaryExpression":
+            left = self.translate(ast["left"])
+            operator = ast["operator"]
+            right = self.translate(ast["right"])
+            return f"({left} {operator} {right})"
+        elif ast["type"] == "Literal":
+            return str(ast["value"])
+        elif ast["type"] == "Variable":
+            return ast["name"]
+        raise ValueError(f"Unknown AST node type: {ast['type']}")
+
 # --- GUI Editor ---
 class DrawPlusPlusEditor:
     def __init__(self, root):
@@ -312,9 +358,9 @@ class DrawPlusPlusEditor:
                     print("Tokens : ", tokens)  # Debug: Voir les jetons
                     parser = Parser(tokens)
                     ast = parser.parse()
-                    #translator = Translator()
-                    #python_code = translator.translate(ast)
-                    #print("Code Python généré :\n", python_code)
+                    translator = CTranslator()
+                    c_code = translator.translate(ast)
+                    print("Code C généré :\n", c_code)
                     #exec(python_code)  # Exécution du code Python généré
                 except SyntaxError as e:
                     messagebox.showerror("Erreur de syntaxe", f"Erreur de syntaxe : {str(e)}")

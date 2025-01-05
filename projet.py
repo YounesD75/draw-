@@ -27,12 +27,6 @@ class Tokenizer:
             ("NOMBRE", r"\d+"),
             ("OPERATEUR", r"[+\-*/=><!]"),
             ("DRAW_LINE", r"\bdrawLine\b"),
-            ("DRAW_CURSOR", r"\bdrawCursor\b"),
-            ("MOVE_CURSOR", r"\bmoveCursor\b"),
-            ("ROTATE_CURSOR", r"\brotateCursor\b"),
-            ("DRAW_SQUARE", r"\bdrawSquare\b"),
-            ("DRAW_CIRCLE", r"\bdrawCircle\b"),
-            ("DRAW_ARC", r"\bdrawArc\b"),
             ("PARENTHESE_OUV", r"\("),
             ("PARENTHESE_FERM", r"\)"),
             ("ACCOLADE_OUV", r"\{"),
@@ -112,18 +106,6 @@ class Parser:
             return self.parse_if()
         elif token[0] == "DRAW_LINE":
             return self.parse_draw_line()
-        elif token[0] == "DRAW_CURSOR":
-            return self.parse_draw_cursor()
-        elif token[0] == "MOVE_CURSOR":
-            return self.parse_move_cursor()
-        elif token[0] == "ROTATE_CURSOR":
-            return self.parse_rotate_cursor()
-        elif token[0] == "DRAW_SQUARE":
-            return self.parse_draw_square()
-        elif token[0] == "DRAW_CIRCLE":
-            return self.parse_draw_circle()
-        elif token[0] == "DRAW_ARC":
-            return self.parse_draw_arc()
         elif token[0] == "AFFICHER":
             return self.parse_print()
         elif token[0] == "VARIABLE":
@@ -305,94 +287,19 @@ class CTranslator:
         elif ast["type"] == "Variable":
             return ast["name"]
 
+        # Ajout pour gérer le cas du "DRAW_LINE"
+        elif ast["type"] == "DRAW_LINE":
+            # Extrait les coordonnées de l'AST
+            x1 = self.translate(ast["params"][0])  # x1
+            y1 = self.translate(ast["params"][1])  # y1
+            x2 = self.translate(ast["params"][2])  # x2
+            y2 = self.translate(ast["params"][3])  # y2
+            return f"drawLine(renderer, {x1}, {y1}, {x2}, {y2});"
+
         else:
             raise ValueError(f"Unknown AST node type: {ast['type']} in {ast}")
 
 
-"""
-class CTranslator:
-    def __init__(self):
-        self.variable_already_defined = []
-
-    def translate(self, ast):
-        print(f"AST: {ast}")  # Débogage pour vérifier l'AST
-
-
-        if ast["type"] == "Program":
-            return "\n".join(self.translate(statement) for statement in ast["body"])
-        c_code = ""
-        for node in ast:
-            if node["type"] == "DRAW_LINE":
-                c_code += self.translate_draw_line(node)
-            elif node["type"] == "DRAW_CURSOR":
-                c_code += self.translate_draw_cursor(node)
-            elif node["type"] == "MOVE_CURSOR":
-                c_code += self.translate_move_cursor(node)
-            elif node["type"] == "ROTATE_CURSOR":
-                c_code += self.translate_rotate_cursor(node)
-            elif node["type"] == "DRAW_SQUARE":
-                c_code += self.translate_draw_square(node)
-            elif node["type"] == "DRAW_CIRCLE":
-                c_code += self.translate_draw_circle(node)
-            elif node["type"] == "DRAW_ARC":
-                c_code += self.translate_draw_arc(node)
-            elif node["type"] == "IfStatement":
-                c_code += self.translate_if_statement(node)
-            elif node["type"] == "Assignment":
-                c_code += self.translate_assignment(node)
-
-        return c_code
-
-    def translate_draw_line(self, node):
-        print(f"test {node["params"]}")
-
-        x1 = node["params"][0]["value"]
-        return f"drawLine(renderer, {x1});\n"
-
-    def translate_draw_cursor(self, node):
-        x, y = node["params"]
-        return f"drawCursor(renderer, {x}, {y});\n"
-
-    def translate_move_cursor(self, node):
-        x, y, dx, dy = node["params"]
-        return f"moveCursor(&{x}, &{y}, {dx}, {dy});\n"
-
-    def translate_rotate_cursor(self, node):
-        dx, dy, angle = node["params"]
-        return f"rotateCursor(&{dx}, &{dy}, {angle});\n"
-
-    def translate_draw_square(self, node):
-        x, y, size = node["params"]
-        return f"drawSquare(renderer, {x}, {y}, {size});\n"
-
-    def translate_draw_circle(self, node):
-        x, y, radius = node["params"]
-        return f"drawCircle(renderer, {x}, {y}, {radius});\n"
-
-    def translate_draw_arc(self, node):
-        x, y, radius, startAngle, endAngle = node["params"]
-        return f"drawArc(renderer, {x}, {y}, {radius}, {startAngle}, {endAngle});\n"
-
-    def translate_if_statement(self, node):
-        condition_code = self.translate(node["condition"])
-        then_code = self.translate(node["then"]).replace("\n", "\n    ")
-        code = f"if ({condition_code}) {{\n    {then_code}\n}}"
-        if node.get("else"):
-            else_code = self.translate(node["else"]).replace("\n", "\n    ")
-            code += f"\nelse {{\n    {else_code}\n}}"
-        return code
-
-    def translate_assignment(self, node):
-        variable = node["variable"]
-        value_code = self.translate(node["value"])
-
-        # Vérifier si la variable a déjà été définie
-        if variable in self.variable_already_defined:
-            return f"{variable} = {value_code};"
-        else:
-            self.variable_already_defined.append(variable)
-            return f"float {variable} = {value_code};"
-"""
 # --- GUI Editor ---
 class DrawPlusPlusEditor:
     def __init__(self, root):
@@ -490,7 +397,17 @@ class DrawPlusPlusEditor:
                         full_c_code = (
                             f"{forme_code}\n"  # Contenu de forme.c inséré ici
                             f"{c_code.strip()}\n"  # Code C généré
-                            "    return 0;\n"
+                            "SDL_RenderPresent(renderer);\n"
+                            "SDL_Event e;\n"
+                            "int quit = 0;\n"
+                            "while (!quit) {\n"
+                            "while (SDL_PollEvent(&e)) {\n"
+                            "if (e.type == SDL_QUIT) {\n"
+                            "quit = 1;\n"
+                            "}\n"
+                            "}\n"
+                            "}\n"
+                            "return 0;\n"
                             "}"
                         )
                     # exec(python_code)  # Exécution du code Python généré

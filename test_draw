@@ -1,0 +1,19 @@
+x -> 5
+
+
+si x ==> 5 {
+afficher("Bonjour")
+}
+sinon{
+afficher("bye")
+}
+
+pour i de 0 à 3 {
+afficher("valeur de i",i)
+}
+
+y -> 5
+tantque y < 10 {
+afficher("valeur de y",y)
+y -> y + 1
+}

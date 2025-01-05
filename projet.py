@@ -281,6 +281,27 @@ class Parser:
         self.consume("PARENTHESE_FERM")
         return {"type": "DRAW_CURSOR", "params": [x, y]}
 
+    def parse_move_cursor(self):
+        self.consume("MOVE_CURSOR")  # Consommer le mot-clé MOVE_CURSOR
+        # print("Consommé MOVE_CURSOR")
+        self.consume("PARENTHESE_OUV")  # Consommer la parenthèse ouvrante
+        dx = self.parse_expression()  # Parse pour récupérer l'expression pour dx
+        self.consume("VIRGULE")  # Consommer la virgule
+        dy = self.parse_expression()  # Parse pour récupérer l'expression pour dy
+        self.consume("PARENTHESE_FERM")  # Consommer la parenthèse fermante
+        print("Consommé PARENTHESE_FERM")
+        return {"type": "MOVE_CURSOR", "params": [dx, dy]}
+
+    def parse_rotate_cursor(self):
+        self.consume("ROTATE_CURSOR")  # Consomme le mot-clé "ROTATE_CURSOR"
+        self.consume("PARENTHESE_OUV")  # Consomme la parenthèse ouvrante
+        angle = self.parse_expression()  # Parse l'angle (expression ou littéral)
+        self.consume("PARENTHESE_FERM")  # Consomme la parenthèse fermante
+        return {
+            "type": "ROTATE_CURSOR",  # Type de nœud pour la rotation du curseur
+            "params": [angle]  # Paramètres : dx, dy, angle
+        }
+
     def parse_while(self):
         self.consume("TANTQUE")
         condition = self.parse_expression()
@@ -306,19 +327,30 @@ class CTranslator:
                 code += f"\nelse {{\n    {self.translate(ast['else']).replace('\n', '\n    ')}\n}}"
             return code
 
+
         elif ast["type"] == "Assignment":
-            if variable_already_defined.count(ast['variable']):
+            if ast['variable'] in variable_already_defined:
+                # Si la variable est déjà définie, juste assigner une nouvelle valeur
                 return f"{ast['variable']} = {self.translate(ast['value'])};"
             else:
+                # Si la variable n'est pas encore définie
                 match (ast["value"]["type"]):
                     case "Literal":
                         value_type = get_value_type(ast["value"]["value"])
-                        print(f"value = {ast["value"]["value"]} value type = {value_type}")
-                        variable_already_defined.append(ast['variable'])
+                        print(f"value = {ast['value']['value']} value type = {value_type}")
+                        variable_already_defined.append(ast['variable'])  # Ajouter la variable définie
                         return f"{value_type} {ast['variable']} = {self.translate(ast['value'])};"
+                    case "Variable":
+                        print(f"value = {ast['value']} {ast['value']['name']}")
+                        if ast['value']["name"] in ["y", "x"]:
+                            # Si la valeur est une variable spécifique, définir comme `int`
+                            variable_already_defined.append(ast['variable'])  # Ajouter la variable définie
+                            return f"float {ast['variable']} = {self.translate(ast['value'])};"
+                        else:
+                            variable_already_defined.append(ast['variable'])  # Ajouter la variable définie
+                            return f"auto {ast['variable']} = {self.translate(ast['value'])};"
                     case "BinaryExpression":
                         return f"float {ast['variable']} = {self.translate(ast['value'])};"
-
         elif ast["type"] == "PrintStatement":
             values = self.translate(ast["values"][0]).strip('"')  # Toujours récupérer la chaîne à afficher
             if len(ast["values"]) > 1:
@@ -386,6 +418,20 @@ class CTranslator:
             x = self.translate(ast["params"][0])  # x
             y = self.translate(ast["params"][1])  # y
             return f"drawCursor(renderer, {x}, {y});"
+
+        elif ast["type"] == "MOVE_CURSOR":
+            # Extrait les paramètres de l'AST
+            dx = self.translate(ast["params"][0])  # Décalage dx
+            dy = self.translate(ast["params"][1])  # Décalage dy
+            # Génère le code C correspondant
+            return f"moveCursor({dx}, {dy});"
+
+        elif ast["type"] == "ROTATE_CURSOR":
+            # Extrait les paramètres de l'AST
+            angle = self.translate(ast["params"][0])  # Angle de rotation
+            # Génère le code C correspondant
+            return f"rotateCursor({angle});"
+
 
         else:
             raise ValueError(f"Unknown AST node type: {ast['type']} in {ast}")

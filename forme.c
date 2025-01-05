@@ -3,6 +3,11 @@
 #include <math.h>
 
 
+// Déclaration des variables globales
+int x = 400, y = 400;  // Position initiale du curseur
+int dx = 100, dy = 90;  // Direction initiale (déplacement horizontal)
+
+
 // Fonction pour dessiner un carré
 void drawSquare(SDL_Renderer *renderer, int x, int y, int size) {
     SDL_Rect square = {x, y, size, size};  // Définir la position et la taille du carré
@@ -63,19 +68,19 @@ void drawCursor(SDL_Renderer *renderer, int x, int y) {
     }
 }
 
-// Fonction pour déplacer le curseur
-void moveCursor(int *x, int *y, int dx, int dy) {
-    *x += dx;
-    *y += dy;
+// Fonction pour déplacer le curseur en utilisant des variables globales
+void moveCursor(int dx, int dy) {
+    x += dx;
+    y += dy;
 }
 
-// Fonction pour faire pivoter un point autour de l'origine (x, y) par un angle donné en degrés
-void rotateCursor(int *dx, int *dy, double angle) {
+// Fonction pour faire pivoter un point autour de l'origine par un angle donné en degrés
+void rotateCursor(int angle) {
     double angleRad = angle * M_PI / 180.0;  // Convertir l'angle en radians
-    double newDx = *dx * cos(angleRad) - *dy * sin(angleRad);
-    double newDy = *dx * sin(angleRad) + *dy * cos(angleRad);
-    *dx = (int)newDx;
-    *dy = (int)newDy;
+    double newDx = dx * cos(angleRad) - dy * sin(angleRad);
+    double newDy = dx * sin(angleRad) + dy * cos(angleRad);
+    dx = (int)newDx;
+    dy = (int)newDy;
 }
 
 int main() {

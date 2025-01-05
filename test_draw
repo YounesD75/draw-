@@ -1,19 +1,66 @@
-x -> 5
+variable_already_defined = []
 
+class CTranslator:
+    def translate(self, ast):
+        print(f"AST: {ast}")  # Débogage pour vérifier l'AST
+        if ast["type"] == "Program":
+            return "\n".join(self.translate(statement) for statement in ast["body"])
 
-si x ==> 5 {
-afficher("Bonjour")
-}
-sinon{
-afficher("bye")
-}
+        elif ast["type"] == "IfStatement":
+            code = f"if ({self.translate(ast['condition'])}){{\n{self.translate(ast['then']).replace('\n','\n')}\n}}"
+            if ast.get("else"):  # Vérification si le bloc else existe
+                code += f"\nelse {{\n    {self.translate(ast['else']).replace('\n', '\n    ')}\n}}"
+            return code
 
-pour i de 0 à 3 {
-afficher("valeur de i",i)
-}
+        elif ast["type"] == "Assignment":
+            if variable_already_defined.count(ast['variable']):
+                return f"{ast['variable']} = {self.translate(ast['value'])};"
+            else:
+                match(ast["value"]["type"]):
+                    case "Literal":
+                        value_type = get_value_type(ast["value"]["value"])
+                        print(f"value = {ast["value"]["value"]} value type = {value_type}")
+                        variable_already_defined.append(ast['variable'])
+                        return f"{value_type} {ast['variable']} = {self.translate(ast['value'])};"
+                    case "BinaryExpression":
+                        return f"float {ast['variable']} = {self.translate(ast['value'])};"
 
-y -> 5
-tantque y < 10 {
-afficher("valeur de y",y)
-y -> y + 1
-}
+        elif ast["type"] == "PrintStatement":
+            values = self.translate(ast["values"][0]).strip('"')  # Toujours récupérer la chaîne à afficher
+            if len(ast["values"]) > 1:
+                variable = self.translate(ast["values"][1])  # Si oui, récupérer la variable
+                return f'printf("{values}\\n", {variable});'  # Afficher la chaîne et la variable
+            else:
+                return f'printf("{values}\\n");'  # Sinon, afficher juste la chaîne
+
+        elif ast["type"] == "ForLoop":
+            variable = ast["variable"]
+            start = self.translate(ast["start"])
+            end = self.translate(ast["end"])
+            body = self.translate(ast["body"]).replace("\n", "\n    ")
+            return f"for (int {variable} = {start}; {variable} <= {end}; {variable}++) {{\n    {body}\n}}"
+
+        elif ast["type"] == "WhileLoop":
+            body = self.translate(ast["body"]).replace("\n", "\n    ")
+            return f"while ({self.translate(ast['condition'])}) {{\n    {body}\n}}"
+
+        elif ast["type"] == "BinaryExpression":
+            left = self.translate(ast["left"])
+            operator = ast["operator"]
+            right = self.translate(ast["right"])
+            return f"{left} {operator} {right}"
+
+        elif ast["type"] == "Literal":
+            return str(ast["value"])
+
+        elif ast["type"] == "Variable":
+            return ast["name"]
+
+        # Ajout pour gérer le cas du "DRAW_LINE"
+        elif ast["type"] == "DRAW_LINE":
+            # Extrait les coordonnées de l'AST
+            x1, y1, x2, y2 = ast["params"]
+            return f"drawLine(renderer, {x1}, {y1}, {x2}, {y2});"
+        
+        else:
+            raise ValueError(f"Unknown AST node type: {ast['type']} in {ast}")

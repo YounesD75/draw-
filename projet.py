@@ -27,6 +27,12 @@ class Tokenizer:
             ("NOMBRE", r"\d+"),
             ("OPERATEUR", r"[+\-*/=><!]"),
             ("DRAW_LINE", r"\bdrawLine\b"),
+            ("DRAW_SQUARE", r"\bdrawSquare\b"),
+            ("DRAW_CIRCLE", r"\bdrawCircle\b"),
+            ("DRAW_ARC", r"\bdrawArc\b"),
+            ("DRAW_CURSOR", r"\bdrawCursor\b"),
+            ("MOVE_CURSOR", r"\bmoveCursor\b"),
+            ("ROTATE_CURSOR", r"\brotateCursor\b"),
             ("PARENTHESE_OUV", r"\("),
             ("PARENTHESE_FERM", r"\)"),
             ("ACCOLADE_OUV", r"\{"),
@@ -106,6 +112,18 @@ class Parser:
             return self.parse_if()
         elif token[0] == "DRAW_LINE":
             return self.parse_draw_line()
+        elif token[0] == "DRAW_SQUARE":
+            return self.parse_draw_square()
+        elif token[0] == "DRAW_CIRCLE":
+            return self.parse_draw_circle()
+        elif token[0] == "DRAW_ARC":
+            return self.parse_draw_arc()
+        elif token[0] == "DRAW_CURSOR":
+            return self.parse_draw_cursor()
+        elif token[0] == "MOVE_CURSOR":
+            return self.parse_move_cursor()
+        elif token[0] == "ROTATE_CURSOR":
+            return self.parse_rotate_cursor()
         elif token[0] == "AFFICHER":
             return self.parse_print()
         elif token[0] == "VARIABLE":
@@ -220,6 +238,54 @@ class Parser:
         self.consume("PARENTHESE_FERM")
         return {"type": "DRAW_LINE", "params": [x1, y1, x2, y2]}
 
+    def parse_draw_square(self):
+        self.consume("DRAW_SQUARE")
+        self.consume("PARENTHESE_OUV")
+        x = self.parse_expression()  # Expression pour la position x
+        self.consume("VIRGULE")
+        y = self.parse_expression()  # Expression pour la position y
+        self.consume("VIRGULE")
+        size = self.parse_expression()  # Expression pour la taille du carré
+        self.consume("PARENTHESE_FERM")
+        return {"type": "DRAW_SQUARE", "params": [x, y, size]}
+
+    def parse_draw_circle(self):
+        self.consume("DRAW_CIRCLE")
+        self.consume("PARENTHESE_OUV")
+        x = self.parse_expression()  # Expression pour la position x
+        self.consume("VIRGULE")
+        y = self.parse_expression()  # Expression pour la position y
+        self.consume("VIRGULE")
+        radius = self.parse_expression()  # Expression pour le rayon
+        self.consume("PARENTHESE_FERM")
+        return {"type": "DRAW_CIRCLE", "params": [x, y, radius]}
+
+    def parse_draw_arc(self):
+        self.consume("DRAW_ARC")
+        self.consume("PARENTHESE_OUV")
+        x = self.parse_expression()  # Expression pour la position x
+        self.consume("VIRGULE")
+        y = self.parse_expression()  # Expression pour la position y
+        self.consume("VIRGULE")
+        radius = self.parse_expression()  # Expression pour le rayon
+        self.consume("VIRGULE")
+        start_angle = self.parse_expression()  # Expression pour l'angle de départ
+        self.consume("VIRGULE")
+        end_angle = self.parse_expression()  # Expression pour l'angle de fin
+        self.consume("PARENTHESE_FERM")
+        return {"type": "DRAW_ARC", "params": [x, y, radius, start_angle, end_angle]}
+
+    def parse_draw_cursor(self):
+        self.consume("DRAW_CURSOR")
+        self.consume("PARENTHESE_OUV")
+        x = self.parse_expression()  # Expression pour la position x
+        self.consume("VIRGULE")
+        y = self.parse_expression()  # Expression pour la position y
+        self.consume("PARENTHESE_FERM")
+        return {"type": "DRAW_CURSOR", "params": [x, y]}
+
+
+
     def parse_while(self):
         self.consume("TANTQUE")
         condition = self.parse_expression()
@@ -233,6 +299,7 @@ variable_already_defined = []
 
 class CTranslator:
     def translate(self, ast):
+        #variable_already_defined.clear()
         print(f"AST: {ast}")  # Débogage pour vérifier l'AST
         if ast["type"] == "Program":
             return "\n".join(self.translate(statement) for statement in ast["body"])
@@ -295,6 +362,34 @@ class CTranslator:
             x2 = self.translate(ast["params"][2])  # x2
             y2 = self.translate(ast["params"][3])  # y2
             return f"drawLine(renderer, {x1}, {y1}, {x2}, {y2});"
+        elif ast["type"] == "DRAW_SQUARE":
+            # Extrait les coordonnées et la taille du carré
+            x = self.translate(ast["params"][0])  # x
+            y = self.translate(ast["params"][1])  # y
+            size = self.translate(ast["params"][2])  # taille
+            return f"drawSquare(renderer, {x}, {y}, {size});"
+
+        elif ast["type"] == "DRAW_CIRCLE":
+            # Extrait les coordonnées et le rayon du cercle
+            x = self.translate(ast["params"][0])  # x
+            y = self.translate(ast["params"][1])  # y
+            radius = self.translate(ast["params"][2])  # rayon
+            return f"drawCircle(renderer, {x}, {y}, {radius});"
+
+        elif ast["type"] == "DRAW_ARC":
+            # Extrait les coordonnées, le rayon et les angles
+            x = self.translate(ast["params"][0])  # x
+            y = self.translate(ast["params"][1])  # y
+            radius = self.translate(ast["params"][2])  # rayon
+            start_angle = self.translate(ast["params"][3])  # angle de départ
+            end_angle = self.translate(ast["params"][4])  # angle de fin
+            return f"drawArc(renderer, {x}, {y}, {radius}, {start_angle}, {end_angle});"
+
+        elif ast["type"] == "DRAW_CURSOR":
+            # Extrait les coordonnées du curseur
+            x = self.translate(ast["params"][0])  # x
+            y = self.translate(ast["params"][1])  # y
+            return f"drawCursor(renderer, {x}, {y});"
 
         else:
             raise ValueError(f"Unknown AST node type: {ast['type']} in {ast}")
@@ -379,7 +474,8 @@ class DrawPlusPlusEditor:
                     parser = Parser(tokens)
                     ast = parser.parse()
                     translator = CTranslator()
-                    variable_already_defined = []
+                    variable_already_defined.clear()
+
                     c_code = translator.translate(ast)
                     print("Code C généré :\n",c_code)
                     # Lire le contenu d'un autre fichier C (forme.c)

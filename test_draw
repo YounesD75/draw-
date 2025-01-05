@@ -1,66 +1,124 @@
-variable_already_defined = []
+#include <SDL2/SDL.h>
+#include <stdio.h>
+#include <math.h>
 
-class CTranslator:
-    def translate(self, ast):
-        print(f"AST: {ast}")  # Débogage pour vérifier l'AST
-        if ast["type"] == "Program":
-            return "\n".join(self.translate(statement) for statement in ast["body"])
+// Fonction pour dessiner un trait entre deux points
+void drawLine(SDL_Renderer *renderer, int x1, int y1, int x2, int y2) {
+    SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
+}
 
-        elif ast["type"] == "IfStatement":
-            code = f"if ({self.translate(ast['condition'])}){{\n{self.translate(ast['then']).replace('\n','\n')}\n}}"
-            if ast.get("else"):  # Vérification si le bloc else existe
-                code += f"\nelse {{\n    {self.translate(ast['else']).replace('\n', '\n    ')}\n}}"
-            return code
+// Fonction pour dessiner un curseur en forme de cercle bleu
+void drawCursor(SDL_Renderer *renderer, int x, int y) {
+    int radius = 5;  // Taille du curseur (cercle)
+    // Couleur du curseur (bleu ici)
+    SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);  // Bleu
+    // Dessiner un cercle
+    for (int w = -radius; w < radius; w++) {
+        for (int h = -radius; h < radius; h++) {
+            if (w * w + h * h <= radius * radius) {  // Vérifie si le point est dans le cercle
+                SDL_RenderDrawPoint(renderer, x + w, y + h);
+            }
+        }
+    }
+}
 
-        elif ast["type"] == "Assignment":
-            if variable_already_defined.count(ast['variable']):
-                return f"{ast['variable']} = {self.translate(ast['value'])};"
-            else:
-                match(ast["value"]["type"]):
-                    case "Literal":
-                        value_type = get_value_type(ast["value"]["value"])
-                        print(f"value = {ast["value"]["value"]} value type = {value_type}")
-                        variable_already_defined.append(ast['variable'])
-                        return f"{value_type} {ast['variable']} = {self.translate(ast['value'])};"
-                    case "BinaryExpression":
-                        return f"float {ast['variable']} = {self.translate(ast['value'])};"
+// Fonction pour déplacer le curseur
+void moveCursor(int *x, int *y, int dx, int dy) {
+    *x += dx;
+    *y += dy;
+}
 
-        elif ast["type"] == "PrintStatement":
-            values = self.translate(ast["values"][0]).strip('"')  # Toujours récupérer la chaîne à afficher
-            if len(ast["values"]) > 1:
-                variable = self.translate(ast["values"][1])  # Si oui, récupérer la variable
-                return f'printf("{values}\\n", {variable});'  # Afficher la chaîne et la variable
-            else:
-                return f'printf("{values}\\n");'  # Sinon, afficher juste la chaîne
+// Fonction pour faire pivoter un point autour de l'origine (x, y) par un angle donné en degrés
+void rotateCursor(int *dx, int *dy, double angle) {
+    double angleRad = angle * M_PI / 180.0;  // Convertir l'angle en radians
+    double newDx = *dx * cos(angleRad) - *dy * sin(angleRad);
+    double newDy = *dx * sin(angleRad) + *dy * cos(angleRad);
+    *dx = (int)newDx;
+    *dy = (int)newDy;
+}
 
-        elif ast["type"] == "ForLoop":
-            variable = ast["variable"]
-            start = self.translate(ast["start"])
-            end = self.translate(ast["end"])
-            body = self.translate(ast["body"]).replace("\n", "\n    ")
-            return f"for (int {variable} = {start}; {variable} <= {end}; {variable}++) {{\n    {body}\n}}"
+int main() {
+    // Initialisation de SDL
+    if (SDL_Init(SDL_INIT_VIDEO) != 0) {
+        fprintf(stderr, "Erreur SDL_Init: %s\n", SDL_GetError());
+        return 1;
+    }
 
-        elif ast["type"] == "WhileLoop":
-            body = self.translate(ast["body"]).replace("\n", "\n    ")
-            return f"while ({self.translate(ast['condition'])}) {{\n    {body}\n}}"
+    // Création d'une fenêtre
+    SDL_Window *window = SDL_CreateWindow("Curseur et Dessin de Carré",
+                                          SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                                          800, 800, SDL_WINDOW_SHOWN);
+    if (!window) {
+        fprintf(stderr, "Erreur SDL_CreateWindow: %s\n", SDL_GetError());
+        SDL_Quit();
+        return 1;
+    }
 
-        elif ast["type"] == "BinaryExpression":
-            left = self.translate(ast["left"])
-            operator = ast["operator"]
-            right = self.translate(ast["right"])
-            return f"{left} {operator} {right}"
+    // Création d'un rendu pour dessiner sur la fenêtre
+    SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    if (!renderer) {
+        fprintf(stderr, "Erreur SDL_CreateRenderer: %s\n", SDL_GetError());
+        SDL_DestroyWindow(window);
+        SDL_Quit();
+        return 1;
+    }
 
-        elif ast["type"] == "Literal":
-            return str(ast["value"])
+    // Définir la couleur de fond (blanc ici)
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+    SDL_RenderClear(renderer);  // Remplir l'écran de blanc
 
-        elif ast["type"] == "Variable":
-            return ast["name"]
+    // Définir la couleur de dessin des lignes (noir ici)
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);  // Noir
 
-        # Ajout pour gérer le cas du "DRAW_LINE"
-        elif ast["type"] == "DRAW_LINE":
-            # Extrait les coordonnées de l'AST
-            x1, y1, x2, y2 = ast["params"]
-            return f"drawLine(renderer, {x1}, {y1}, {x2}, {y2});"
-        
-        else:
-            raise ValueError(f"Unknown AST node type: {ast['type']} in {ast}")
+    // Position initiale du curseur
+    int x = 400, y = 400;
+    int size = 100;  // Taille du carré
+    int dx = size, dy = 90;  // Direction initiale (déplacement horizontal)
+    int startX = x, startY = y;
+
+    // Dessiner chaque côté du carré
+    for (int i = 0; i < 4; i++) {
+        // Avancer le curseur de "size" pixels dans la direction actuelle
+        moveCursor(&x, &y, dx, dy);
+
+        // Dessiner un trait entre la position actuelle et précédente
+        drawLine(renderer, startX, startY, x, y);
+
+        // Sauvegarder la position pour le prochain déplacement
+        startX = x;
+        startY = y;
+
+        // Afficher le curseur à chaque étape (ici en forme de cercle bleu)
+        drawCursor(renderer, x, y);
+
+        // Pivoter le curseur de 90 degrés pour dessiner le prochain côté du carré
+        rotateCursor(&dx, &dy, 90);
+
+        // Afficher le dessin après chaque ligne pour un effet progressif
+        SDL_RenderPresent(renderer);
+        SDL_Delay(500);  // Attendre un peu pour rendre le dessin progressif
+    }
+    	rotateCursor(&dx,&dy,-90);
+	moveCursor(&x, &y, dx, dy);
+	drawLine(renderer, startX, startY, x, y);
+	drawCursor(renderer, x, y);
+	SDL_RenderPresent(renderer);
+        SDL_Delay(500);  
+    // Boucle d'événements pour garder la fenêtre ouverte
+    SDL_Event e;
+    int quit = 0;
+    while (!quit) {
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_QUIT) {
+                quit = 1;
+            }
+        }
+    }
+
+    // Nettoyer et quitter
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    return 0;
+}

@@ -1,9 +1,6 @@
+import re
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
-import re
-
-from numpy.matlib import zeros
-from sympy.strategies.core import switch
 
 
 class Tokenizer:
@@ -74,12 +71,13 @@ def get_value_type(value):
         return "char"
     elif isinstance(value, int):
         return "int"
-    elif isinstance(value,float):
+    elif isinstance(value, float):
         return "float"
     elif isinstance(value, bool):
         return "bool"
     else:
         return "unknown"
+
 
 # --- Parser ---
 class Parser:
@@ -183,7 +181,6 @@ class Parser:
             return {"type": "Literal", "value": token[1]}
         raise SyntaxError(f"Unexpected token in expression: {token}")
 
-
     def parse_assignment(self):
         variable = self.consume("VARIABLE")
         self.consume("ASSIGNATION")
@@ -284,8 +281,6 @@ class Parser:
         self.consume("PARENTHESE_FERM")
         return {"type": "DRAW_CURSOR", "params": [x, y]}
 
-
-
     def parse_while(self):
         self.consume("TANTQUE")
         condition = self.parse_expression()
@@ -297,15 +292,16 @@ class Parser:
 
 variable_already_defined = []
 
+
 class CTranslator:
     def translate(self, ast):
-        #variable_already_defined.clear()
+        # variable_already_defined.clear()
         print(f"AST: {ast}")  # Débogage pour vérifier l'AST
         if ast["type"] == "Program":
             return "\n".join(self.translate(statement) for statement in ast["body"])
 
         elif ast["type"] == "IfStatement":
-            code = f"if ({self.translate(ast['condition'])}){{\n{self.translate(ast['then']).replace('\n','\n')}\n}}"
+            code = f"if ({self.translate(ast['condition'])}){{\n{self.translate(ast['then']).replace('\n', '\n')}\n}}"
             if ast.get("else"):  # Vérification si le bloc else existe
                 code += f"\nelse {{\n    {self.translate(ast['else']).replace('\n', '\n    ')}\n}}"
             return code
@@ -314,7 +310,7 @@ class CTranslator:
             if variable_already_defined.count(ast['variable']):
                 return f"{ast['variable']} = {self.translate(ast['value'])};"
             else:
-                match(ast["value"]["type"]):
+                match (ast["value"]["type"]):
                     case "Literal":
                         value_type = get_value_type(ast["value"]["value"])
                         print(f"value = {ast["value"]["value"]} value type = {value_type}")
@@ -477,7 +473,7 @@ class DrawPlusPlusEditor:
                     variable_already_defined.clear()
 
                     c_code = translator.translate(ast)
-                    print("Code C généré :\n",c_code)
+                    print("Code C généré :\n", c_code)
                     # Lire le contenu d'un autre fichier C (forme.c)
                     file_path = filedialog.askopenfilename(
                         title="Sélectionner le fichier C à importer",

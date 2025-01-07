@@ -17,11 +17,10 @@ class Tokenizer:
             ("DE", r"\bde\b"),  # Mot "de" pour les plages dans les boucles
             ("TANTQUE", r"tantque"),
             ("EQUALS_EQUIV", r"==>"),
-            ("TANTQUEFAIRE", r"tantquefaire"),
             ("AFFICHER", r"afficher"),
-            ("FLOTTANT", r"\d+\.\d+"),
+            ("FLOTTANT", r"-?\d+\.\d+"),
             ("ASSIGNATION", r"->"),
-            ("NOMBRE", r"\d+"),
+            ("NOMBRE", r"-?\d+"),
             ("OPERATEUR", r"[+\-*/=><!]"),
             ("DRAW_LINE", r"\bdrawLine\b"),
             ("DRAW_SQUARE", r"\bdrawSquare\b"),
@@ -75,6 +74,19 @@ def get_value_type(value):
         return "float"
     elif isinstance(value, bool):
         return "bool"
+    else:
+        return "unknown"
+
+
+def get_type(value):
+    if isinstance(value, str):
+        return "%s"
+    elif isinstance(value, int):
+        return "%d"
+    elif isinstance(value, float):
+        return "%f"
+        # elif isinstance(value, bool):
+        #   return "bool"
     else:
         return "unknown"
 

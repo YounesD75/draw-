@@ -61,7 +61,7 @@ class Tokenizer:
             if not match:  # No token match 
                 raise SyntaxError(f"Caractère inattendu : {code[0]}")
 
-        tokens.append(("EOF", None))  # Add end token (EOF)
+        tokens.append(("EOF", None))  # Add  value : EOF at the end of list
         return tokens
 
 

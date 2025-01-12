@@ -8,27 +8,27 @@ class Tokenizer:
         self.code = code
         self.tokens = []
 
-        # Définir les modèles de jetons
+        #Define tokens models 
         self.token_patterns = [
-            ("SI", r"\bsi\b"),  # Mot "si" entier
-            ("SINON", r"\bsinon\b"),  # Mot "sinon" entier
-            ("POUR", r"\bpour\b"),  # Mot "pour" entier
-            ("A", r"\bà\b"),  # Mot "à" pour les plages dans les boucles
+            ("SI", r"\bsi\b"),  #Word "if"
+            ("SINON", r"\bsinon\b"),  # word "else" 
+            ("POUR", r"\bpour\b"),  # word "for"
+            ("A", r"\bà\b"),  # mot "à" pour les plages dans les boucles #a traduire
             ("DE", r"\bde\b"),  # Mot "de" pour les plages dans les boucles
-            ("TANTQUE", r"tantque"),
+            ("TANTQUE", r"tantque"), #word "while"
             ("EQUALS_EQUIV", r"==>"),
-            ("AFFICHER", r"afficher"),
+            ("AFFICHER", r"afficher"),#word "printf"
             ("FLOTTANT", r"-?\d+\.\d+"),
             ("ASSIGNATION", r"->"),
             ("NOMBRE", r"-?\d+"),
             ("OPERATEUR", r"[+\-*/=><!]"),
-            ("DRAW_LINE", r"\bdrawLine\b"),
-            ("DRAW_SQUARE", r"\bdrawSquare\b"),
-            ("DRAW_CIRCLE", r"\bdrawCircle\b"),
-            ("DRAW_ARC", r"\bdrawArc\b"),
-            ("DRAW_CURSOR", r"\bdrawCursor\b"),
-            ("MOVE_CURSOR", r"\bmoveCursor\b"),
-            ("ROTATE_CURSOR", r"\brotateCursor\b"),
+            ("DRAW_LINE", r"\bdrawLine\b"), #fonctionC
+            ("DRAW_SQUARE", r"\bdrawSquare\b"), #fonctionC
+            ("DRAW_CIRCLE", r"\bdrawCircle\b"), #fonctionC
+            ("DRAW_ARC", r"\bdrawArc\b"), #fonctionC
+            ("DRAW_CURSOR", r"\bdrawCursor\b"), #fonctionC
+            ("MOVE_CURSOR", r"\bmoveCursor\b"), #fonctionC
+            ("ROTATE_CURSOR", r"\brotateCursor\b"), #fonctionC
             ("PARENTHESE_OUV", r"\("),
             ("PARENTHESE_FERM", r"\)"),
             ("ACCOLADE_OUV", r"\{"),
@@ -41,27 +41,27 @@ class Tokenizer:
 
     def tokenize(self):
         code = self.code
-        tokens = []  # Liste vide pour les jetons
+        tokens = []  # empty list to store tokens from code
 
-        while code:  # Tant qu'il reste du code à analyser
+        while code:  # while code left to analyse 
             match = None
 
-            # Essayer de faire correspondre un modèle de jeton
+            # Matching words from code to known tokens
             for token_type, pattern in self.token_patterns:
                 regex = re.compile(pattern)
                 match = regex.match(code)
 
                 if match:
-                    value = match.group(0)  # Extraire la valeur correspondante
-                    if token_type != "ESPACE":  # Ignorer les espaces
-                        tokens.append((token_type, value))  # Ajouter le jeton à la liste
-                    code = code[len(value):]  # Avancer dans le code
+                    value = match.group(0)  # Extract matching value 
+                    if token_type != "ESPACE":  # Ignore blank spaces 
+                        tokens.append((token_type, value))  # Add token to list
+                    code = code[len(value):]  # Read next token
                     break
 
-            if not match:  # Si aucun jeton ne correspond
+            if not match:  # No token match 
                 raise SyntaxError(f"Caractère inattendu : {code[0]}")
 
-        tokens.append(("EOF", None))  # Ajouter un jeton de fin (EOF)
+        tokens.append(("EOF", None))  # Add end token (EOF)
         return tokens
 
 

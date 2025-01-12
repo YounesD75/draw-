@@ -3,23 +3,22 @@
 #include <math.h>
 
 
-// Déclaration des variables globales
-int x = 400, y = 400;  // Position initiale du curseur
-int dx = 100, dy = 90;  // Direction initiale (déplacement horizontal)
+// Declaration of global variables
+int x = 400, y = 400;  // Initial position of the cursor
+int dx = 100, dy = 90;  // Initial direction (horizontal movement)
 
-
-// Fonction pour dessiner un carré
+// Function to draw a square
 void drawSquare(SDL_Renderer *renderer, int x, int y, int size) {
-    SDL_Rect square = {x, y, size, size};  // Définir la position et la taille du carré
-    SDL_RenderFillRect(renderer, &square);  // Dessiner le carré
+    SDL_Rect square = {x, y, size, size};  // Set the position and size of the square
+    SDL_RenderFillRect(renderer, &square);  // Draw the square
 }
 
-// Fonction pour dessiner un cercle
+// Function to draw a circle
 void drawCircle(SDL_Renderer *renderer, int x, int y, int radius) {
     for (int w = 0; w < 2 * radius; w++) {
         for (int h = 0; h < 2 * radius; h++) {
-            int dx = radius - w;  // Distance horizontale par rapport au centre
-            int dy = radius - h;  // Distance verticale par rapport au centre
+            int dx = radius - w;  // Horizontal distance from the center
+            int dy = radius - h;  // Vertical distance from the center
             if ((dx * dx + dy * dy) <= (radius * radius)) {
                 SDL_RenderDrawPoint(renderer, x + dx, y + dy);
             }
@@ -27,54 +26,54 @@ void drawCircle(SDL_Renderer *renderer, int x, int y, int radius) {
     }
 }
 
-// Fonction pour dessiner un segment de droite
+// Function to draw a line segment
 void drawLine(SDL_Renderer *renderer, int x1, int y1, int x2, int y2) {
     SDL_RenderDrawLine(renderer, x1, y1, x2, y2);
 }
 
-// Fonction pour dessiner un arc
+// Function to draw an arc
 void drawArc(SDL_Renderer *renderer, int x, int y, int radius, int startAngle, int endAngle) {
-    // On s'assure que l'angle de départ est plus petit que l'angle de fin
+   // Ensure that the starting angle is smaller than the ending angle
     if (startAngle > endAngle) {
         int temp = startAngle;
         startAngle = endAngle;
         endAngle = temp;
     }
 
-    // Dessiner les points de l'arc
+   // Draw the points of the arc
     for (int angle = startAngle; angle <= endAngle; angle++) {
-        double rad = angle * M_PI / 180.0;  // Conversion en radians
-        int dx = (int)(radius * cos(rad));  // Calcul de la coordonnée x
-        int dy = (int)(radius * sin(rad));  // Calcul de la coordonnée y
+        double rad = angle * M_PI / 180.0;  // Conversion to radians
+        int dx = (int)(radius * cos(rad));  // Calculate the x coordinate
+        int dy = (int)(radius * sin(rad));  // Calculate the y coordinate
 
-        // Dessiner chaque point de l'arc
+        // Draw each point of the arc
         SDL_RenderDrawPoint(renderer, x + dx, y + dy);
     }
 }
 
 
-// Fonction pour dessiner un curseur en forme de cercle bleu
+// Function to draw a cursor in the shape of a blue circle
 void drawCursor(SDL_Renderer *renderer, int x, int y) {
-    int radius = 5;  // Taille du curseur (cercle)
-    // Couleur du curseur (bleu ici)
-    SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);  // Bleu
-    // Dessiner un cercle
+    int radius = 5;  // Size of the cursor (circle)
+    // Cursor color (blue here)
+    SDL_SetRenderDrawColor(renderer, 0, 0, 255, 255);  // Blue
+    // Draw a circle
     for (int w = -radius; w < radius; w++) {
         for (int h = -radius; h < radius; h++) {
-            if (w * w + h * h <= radius * radius) {  // Vérifie si le point est dans le cercle
+            if (w * w + h * h <= radius * radius) {  // Check if the point is inside the circle
                 SDL_RenderDrawPoint(renderer, x + w, y + h);
             }
         }
     }
 }
 
-// Fonction pour déplacer le curseur en utilisant des variables globales
+// Function to move the cursor using global variables
 void moveCursor(int dx, int dy) {
     x += dx;
     y += dy;
 }
 
-// Fonction pour faire pivoter un point autour de l'origine par un angle donné en degrés
+// Function to rotate a point around the origin by a given angle in degrees
 void rotateCursor(int angle) {
     double angleRad = angle * M_PI / 180.0;  // Convertir l'angle en radians
     double newDx = dx * cos(angleRad) - dy * sin(angleRad);
@@ -84,13 +83,13 @@ void rotateCursor(int angle) {
 }
 
 int main() {
-    // Initialisation de SDL
+    // Initialization of SDL
     if (SDL_Init(SDL_INIT_VIDEO) != 0) {
         fprintf(stderr, "Erreur SDL_Init: %s\n", SDL_GetError());
         return 1;
     }
 
-    // Création d'une fenêtre
+    // Creation of a window
     SDL_Window *window = SDL_CreateWindow("DRAW DESSIN",
                                           SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                           800, 800, SDL_WINDOW_SHOWN);
@@ -100,7 +99,7 @@ int main() {
         return 1;
     }
 
-    // Création d'un rendu pour dessiner sur la fenêtre
+    // Creation of a renderer to draw on the window
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
     if (!renderer) {
         fprintf(stderr, "Erreur SDL_CreateRenderer: %s\n", SDL_GetError());
@@ -109,9 +108,9 @@ int main() {
         return 1;
     }
 
-    // Définir la couleur de fond (blanc ici)
+    // Set the background color (white here)
     SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-    SDL_RenderClear(renderer);  // Remplir l'écran de blanc
+    SDL_RenderClear(renderer);  // Fill the screen with white
 
-    // Définir la couleur de dessin des lignes (noir ici)
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);  // Noir
+    // Set the drawing color for lines (black here)
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);  // Black
